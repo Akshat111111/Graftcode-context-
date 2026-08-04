@@ -1,0 +1,8 @@
+# Graftcode Context Library (official PyPI package)
+# https://pypi.org/project/graftcode-context/
+graftcode-context>=1.0.0
+
+# Web framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+starlette>=0.41.0
