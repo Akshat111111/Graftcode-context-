@@ -603,4 +603,3 @@ PYTHONPATH=src uvicorn src.service:app --reload --port 8000
 **Official resources:**
 - Docs: https://docs.graftcode.com/security-and-trust/graftcode-context
 - PyPI: https://pypi.org/project/graftcode-context/
-- Code generator: https://github.com/grft-dev/graftcode-code-generator
