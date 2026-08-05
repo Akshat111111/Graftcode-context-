@@ -28,10 +28,12 @@ A complete Python demo showing how **Graftcode Context** propagates HTTP request
 
 ## Overview
 
-This demo implements a FastAPI service that uses the official `graftcode-context` Python library to access request-scoped headers with a single method call:
+This repo is a **reference implementation** of the Graftcode Context Library (`src/graftcode/`) bundled with a FastAPI demo service. It runs on the local source code via `PYTHONPATH=src` — not the PyPI package — so you can read and experiment with the full implementation.
+
+> **Note on imports:** The PyPI package (`graftcode-context` 1.0.0) installs under the `graftcode` namespace. All imports in this repo use `from graftcode import ...` to match. You may see `graftcode_context` referenced in older external docs — that module name does not exist; the correct namespace is `graftcode`.
 
 ```python
-from graftcode_context import RequestContext
+from graftcode import RequestContext
 
 headers = RequestContext.current().get_headers()
 auth   = headers.get("Authorization")
@@ -146,11 +148,9 @@ source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
 
-> The official Graftcode Context library is installed from PyPI:
-> ```
-> pip install graftcode-context
-> ```
-> See: https://pypi.org/project/graftcode-context/
+> **Reference implementation note:** This repo ships its own copy of the library in `src/graftcode/` and always runs that local code (`PYTHONPATH=src`). The PyPI package (`pip install graftcode-context`) is listed in `requirements.txt` for completeness but is shadowed at runtime. If you run without `PYTHONPATH=src` the PyPI version loads and `GraftConfig` will not be available.
+>
+> PyPI page: https://pypi.org/project/graftcode-context/
 
 ---
 
@@ -190,7 +190,7 @@ tenant = headers.get("X-Tenant-Id")
 Use `GraftConfig.set_headers()` once at application startup. The headers are available in every subsequent `RequestContext` automatically.
 
 ```python
-from graftcode_context import GraftConfig
+from graftcode import GraftConfig
 
 # Call once at startup (e.g. in your main.py or app factory)
 GraftConfig.set_headers({
@@ -210,7 +210,7 @@ Use `GraftConfig.invoke_with_headers(fn, headers)` to override headers for a **s
 ### Synchronous
 
 ```python
-from graftcode_context import GraftConfig
+from graftcode import GraftConfig
 
 result = GraftConfig.invoke_with_headers(
     lambda: MyService.do_something(),
@@ -236,7 +236,7 @@ result = await GraftConfig.invoke_with_headers_async(
 Inside any handler — sync or async — read headers via:
 
 ```python
-from graftcode_context import RequestContext
+from graftcode import RequestContext
 
 # Returns all propagated headers as a dict
 headers = RequestContext.current().get_headers()
