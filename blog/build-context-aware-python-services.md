@@ -20,7 +20,7 @@ In a distributed system, the stakes are higher:
 
 **Authentication** — A JWT must be validated once at the gateway and then *trusted* by downstream services. Re-validating in every service wastes CPU and creates surface area for bugs.
 
-**Correlation IDs** — A user sees a 500 error. Without a correlation ID flowing through every log line — authentication service, order service, inventory service, payment service — finding the root cause means searching through millions of unrelated events.
+**Correlation IDs** — A user sees a 500 error. Without a correlation ID flowing through every log line authentication service, order service, inventory service, payment service — finding the root cause means searching through millions of unrelated events.
 
 **Multi-tenancy** — SaaS products must ensure that tenant A never accidentally reads tenant B's data. The safest design routes every database query through a tenant filter that is *automatically* derived from the request, not passed manually.
 
