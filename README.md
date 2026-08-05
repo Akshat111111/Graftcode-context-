@@ -3,7 +3,7 @@
 > **Official docs:** [Graftcode Context Libraries](https://docs.graftcode.com/security-and-trust/graftcode-context)  
 > **PyPI package:** [`graftcode-context`](https://pypi.org/project/graftcode-context/)
 
-A complete Python demo showing how **Graftcode Context** propagates HTTP request headers — authentication tokens, correlation IDs, and tenant IDs — through your service without writing custom middleware or threading headers through every function call.
+A complete Python demo showing how **Graftcode Context** propagates HTTP request headers — authentication tokens, correlation IDs, and tenant IDs  through your service without writing custom middleware or threading headers through every function call.
 
 ---
 
