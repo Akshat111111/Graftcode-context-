@@ -60,7 +60,7 @@ class RequestContext:
 
     Usage (server-side handler)::
 
-        from graftcode_context import RequestContext
+        from graftcode import RequestContext
 
         def my_handler():
             headers = RequestContext.current().get_headers()
@@ -225,7 +225,7 @@ class GraftConfig:
         -------
         ::
 
-            from graftcode_context import GraftConfig
+            from graftcode import GraftConfig
 
             GraftConfig.set_headers({
                 "Authorization": "Bearer token123",
@@ -360,3 +360,4 @@ class GraftConfig:
         # Per-call override wins
         merged.update(override)
         return merged
+
