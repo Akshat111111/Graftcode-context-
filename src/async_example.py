@@ -29,7 +29,7 @@ from graftcode import GraftConfig, RequestContext
 # ---------------------------------------------------------------------------
 
 print("=" * 60)
-print("Graftcode Context — Python Async Demo")
+print("Graftcode Context - Python Async Demo")
 print("=" * 60)
 
 GraftConfig.set_headers(
@@ -40,7 +40,7 @@ GraftConfig.set_headers(
 )
 
 print("\n[1] Global headers set via GraftConfig.set_headers()")
-print(f"    → {GraftConfig.get_global_headers()}")
+print(f"    => {GraftConfig.get_global_headers()}")
 
 
 # ---------------------------------------------------------------------------
@@ -52,11 +52,11 @@ print("\n[2] Synchronous: GraftConfig.invoke_with_headers(callable, headers)")
 
 def read_auth_context() -> dict:
     """Simulates a service handler reading its context."""
-    headers = RequestContext.current().get_headers()
+    ctx = RequestContext.current()
     return {
-        "authorization": headers.get("authorization"),
-        "correlation_id": headers.get("x-correlation-id"),
-        "service_name": headers.get("x-service-name"),  # from global headers
+        "authorization": ctx.get_header("Authorization"),
+        "correlation_id": ctx.get_header("X-Correlation-Id"),
+        "service_name": ctx.get_header("X-Service-Name"),  # from global headers
     }
 
 
@@ -67,12 +67,12 @@ result = GraftConfig.invoke_with_headers(
         "X-Correlation-Id": f"req-{uuid.uuid4().hex[:8]}",
     },
 )
-print(f"    → {result}")
+print(f"    => {result}")
 
 # Confirm outer context is unaffected
 outer = RequestContext.current().get_headers()
-print(f"    → Outer context after call: {outer}")
-print(f"    → Authorization in outer context: {outer.get('Authorization', 'None (correctly isolated)')}")
+print(f"    => Outer context after call: {outer}")
+print(f"    => Authorization in outer context: {outer.get('Authorization', 'None (correctly isolated)')}")
 
 
 # ---------------------------------------------------------------------------
@@ -87,13 +87,13 @@ async def async_service_call(name: str, tenant: str, corr_id: str) -> dict:
 
     async def _work():
         await asyncio.sleep(0.01)  # simulate I/O
-        headers = RequestContext.current().get_headers()
+        ctx = RequestContext.current()
         return {
             "caller": name,
-            "tenant_id": headers.get("x-tenant-id"),
-            "correlation_id": headers.get("x-correlation-id"),
-            "authorization": headers.get("authorization"),
-            "service_name": headers.get("x-service-name"),  # global header
+            "tenant_id": ctx.get_header("X-Tenant-Id"),
+            "correlation_id": ctx.get_header("X-Correlation-Id"),
+            "authorization": ctx.get_header("Authorization"),
+            "service_name": ctx.get_header("X-Service-Name"),  # global header
         }
 
     return await GraftConfig.invoke_with_headers_async(
@@ -115,21 +115,21 @@ async def run_concurrent_demo():
     )
 
     for r in results:
-        print(f"    → {r}")
+        print(f"    => {r}")
 
     # Verify isolation
     tenants = [r["tenant_id"] for r in results]
     all_unique = len(set(tenants)) == len(tenants)
-    print(f"\n    ✓ All tenant IDs unique (context isolation verified): {all_unique}")
+    print(f"\n    [OK] All tenant IDs unique (context isolation verified): {all_unique}")
 
     # Verify global headers were visible inside each call
     all_have_service_name = all(r["service_name"] == "async-demo-service" for r in results)
-    print(f"    ✓ Global X-Service-Name visible in all tasks: {all_have_service_name}")
+    print(f"    [OK] Global X-Service-Name visible in all tasks: {all_have_service_name}")
 
     # Outer context is clean after all tasks complete
     outer = RequestContext.current().get_headers()
     print(f"\n    Outer context after all tasks: {outer}")
-    print(f"    No X-Tenant-Id in outer context: {'X-Tenant-Id' not in outer and 'x-tenant-id' not in outer}")
+    print(f"    No X-Tenant-Id in outer context: {RequestContext.current().get_header('X-Tenant-Id') is None}")
 
 
 asyncio.run(run_concurrent_demo())
@@ -143,11 +143,11 @@ print("\n[4] Nested context stacking")
 
 
 def inner_call() -> dict:
-    headers = RequestContext.current().get_headers()
+    ctx = RequestContext.current()
     return {
-        "authorization": headers.get("authorization"),
-        "tenant_id": headers.get("x-tenant-id"),
-        "correlation_id": headers.get("x-correlation-id"),
+        "authorization": ctx.get_header("Authorization"),
+        "tenant_id": ctx.get_header("X-Tenant-Id"),
+        "correlation_id": ctx.get_header("X-Correlation-Id"),
     }
 
 
@@ -171,13 +171,13 @@ def outer_call() -> dict:
 
 
 nested_result = GraftConfig.invoke_with_headers(outer_call, {})
-print(f"    → Nested result: {nested_result}")
+print(f"    => Nested result: {nested_result}")
 print(
-    "    → Authorization from inner override: Bearer inner-token ==",
+    "    => Authorization from inner override: Bearer inner-token ==",
     nested_result["authorization"],
 )
 print(
-    "    → Correlation-Id inherited from outer: outer-corr-001 ==",
+    "    => Correlation-Id inherited from outer: outer-corr-001 ==",
     nested_result["correlation_id"],
 )
 

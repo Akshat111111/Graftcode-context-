@@ -79,8 +79,8 @@ class TestInvokeWithHeaders:
             {"Authorization": "Bearer per-call", "X-Correlation-Id": "corr-123"},
         )
         assert result == "ok"
-        assert captured["authorization"] == "Bearer per-call"
-        assert captured["x-correlation-id"] == "corr-123"
+        assert captured["Authorization"] == "Bearer per-call"
+        assert captured["X-Correlation-Id"] == "corr-123"
 
     def test_per_call_headers_override_global(self):
         GraftConfig.set_headers({"Authorization": "Bearer global"})
@@ -91,7 +91,7 @@ class TestInvokeWithHeaders:
             captured.update(RequestContext.current().get_headers())
 
         GraftConfig.invoke_with_headers(fn, {"Authorization": "Bearer per-call"})
-        assert captured["authorization"] == "Bearer per-call"
+        assert captured["Authorization"] == "Bearer per-call"
 
     def test_global_headers_visible_in_call(self):
         GraftConfig.set_headers({"X-Service-Name": "my-svc"})
@@ -101,8 +101,8 @@ class TestInvokeWithHeaders:
             captured.update(RequestContext.current().get_headers())
 
         GraftConfig.invoke_with_headers(fn, {"X-Tenant-Id": "acme"})
-        assert captured["x-service-name"] == "my-svc"
-        assert captured["x-tenant-id"] == "acme"
+        assert captured["X-Service-Name"] == "my-svc"
+        assert captured["X-Tenant-Id"] == "acme"
 
     def test_context_restored_after_call(self):
         outer_ctx = RequestContext({"X-Stage": "outer"})
@@ -111,7 +111,7 @@ class TestInvokeWithHeaders:
         GraftConfig.invoke_with_headers(lambda: None, {"X-Stage": "inner"})
 
         current = RequestContext.current()
-        assert current.get_headers().get("x-stage") == "outer"
+        assert current.get_headers().get("X-Stage") == "outer"
         RequestContext._unbind(token)
 
     def test_context_restored_on_exception(self):
@@ -125,7 +125,7 @@ class TestInvokeWithHeaders:
                 {"X-Stage": "inner"},
             )
 
-        assert RequestContext.current().get_headers().get("x-stage") == "outer"
+        assert RequestContext.current().get_headers().get("X-Stage") == "outer"
         RequestContext._unbind(token)
 
     def test_return_value_propagated(self):
@@ -152,12 +152,12 @@ class TestInvokeWithHeaders:
         )
 
         # Outer call sees outer headers
-        assert captured_outer["authorization"] == "Bearer outer"
-        assert captured_outer["x-correlation-id"] == "corr-001"
+        assert captured_outer["Authorization"] == "Bearer outer"
+        assert captured_outer["X-Correlation-Id"] == "corr-001"
 
         # Inner call overrides Authorization but inherits Correlation-Id
-        assert captured_inner["authorization"] == "Bearer inner"
-        assert captured_inner["x-correlation-id"] == "corr-001"
+        assert captured_inner["Authorization"] == "Bearer inner"
+        assert captured_inner["X-Correlation-Id"] == "corr-001"
 
 
 # ---------------------------------------------------------------------------
@@ -180,8 +180,8 @@ class TestInvokeWithHeadersAsync:
             )
         )
         assert result == "async-ok"
-        assert captured["authorization"] == "Bearer async-tok"
-        assert captured["x-tenant-id"] == "tenant-x"
+        assert captured["Authorization"] == "Bearer async-tok"
+        assert captured["X-Tenant-Id"] == "tenant-x"
 
     def test_async_per_call_headers_override_global(self):
         GraftConfig.set_headers({"Authorization": "Bearer global"})
@@ -193,7 +193,7 @@ class TestInvokeWithHeadersAsync:
         asyncio.run(
             GraftConfig.invoke_with_headers_async(fn, {"Authorization": "Bearer async-per-call"})
         )
-        assert captured["authorization"] == "Bearer async-per-call"
+        assert captured["Authorization"] == "Bearer async-per-call"
 
     def test_async_context_restored_after_call(self):
         outer_ctx = RequestContext({"X-Stage": "async-outer"})
@@ -203,7 +203,7 @@ class TestInvokeWithHeadersAsync:
             await GraftConfig.invoke_with_headers_async(
                 lambda: asyncio.sleep(0), {"X-Stage": "async-inner"}
             )
-            result = RequestContext.current().get_headers().get("x-stage")
+            result = RequestContext.current().get_headers().get("X-Stage")
             RequestContext._unbind(token)
             return result
 
@@ -216,10 +216,8 @@ class TestInvokeWithHeadersAsync:
         async def task(tenant: str) -> str:
             async def _work():
                 await asyncio.sleep(0.01)
-                return (
-                    RequestContext.current().get_headers().get("X-Tenant-Id")
-                    or RequestContext.current().get_headers().get("x-tenant-id")
-                )
+                # get_header() is case-insensitive; use canonical casing
+                return RequestContext.current().get_header("X-Tenant-Id")
 
             return await GraftConfig.invoke_with_headers_async(
                 _work, {"X-Tenant-Id": tenant}
@@ -242,5 +240,5 @@ class TestInvokeWithHeadersAsync:
         asyncio.run(
             GraftConfig.invoke_with_headers_async(fn, {"X-Tenant-Id": "acme"})
         )
-        assert captured["x-service-name"] == "async-svc"
-        assert captured["x-tenant-id"] == "acme"
+        assert captured["X-Service-Name"] == "async-svc"
+        assert captured["X-Tenant-Id"] == "acme"

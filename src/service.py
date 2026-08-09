@@ -115,13 +115,12 @@ GraftConfig.set_headers(
 
 def _summarise(ctx: RequestContext) -> Dict[str, Any]:
     """Serialise a RequestContext to a JSON-friendly dict."""
-    headers = ctx.get_headers()
     return {
-        "authorization": headers.get("authorization"),
-        "correlation_id": headers.get("x-correlation-id"),
-        "tenant_id": headers.get("x-tenant-id"),
-        "user_id": headers.get("x-user-id"),
-        "all_headers": headers,
+        "authorization": ctx.get_header("Authorization"),
+        "correlation_id": ctx.get_header("X-Correlation-Id"),
+        "tenant_id": ctx.get_header("X-Tenant-Id"),
+        "user_id": ctx.get_header("X-User-Id"),
+        "all_headers": ctx.get_headers(),
     }
 
 
@@ -165,9 +164,10 @@ async def auth_demo():
     ```
     """
     # The single line every handler needs — no dependency injection required
-    headers = RequestContext.current().get_headers()
+    ctx = RequestContext.current()
+    headers = ctx.get_headers()
 
-    auth = headers.get("authorization")
+    auth = ctx.get_header("Authorization")
 
     if not auth:
         return JSONResponse(
@@ -187,7 +187,7 @@ async def auth_demo():
             f"{token_value[:16]}..." if len(token_value) > 16 else token_value
         ),
         "full_authorization": auth,
-        "user_id": headers.get("x-user-id"),
+        "user_id": ctx.get_header("X-User-Id"),
         "how_graftcode_works": (
             "The Graftcode Gateway intercepts the client request, validates the JWT, "
             "and forwards the Authorization header to your service.  Inside the handler "
@@ -214,8 +214,8 @@ async def correlation_demo():
          http://localhost:8000/correlation-demo
     ```
     """
-    headers = RequestContext.current().get_headers()
-    corr_id = headers.get("x-correlation-id")
+    ctx = RequestContext.current()
+    corr_id = ctx.get_header("X-Correlation-Id")
 
     auto_generated = False
     if not corr_id:
@@ -256,8 +256,8 @@ async def tenant_demo():
          http://localhost:8000/tenant-demo
     ```
     """
-    headers = RequestContext.current().get_headers()
-    tenant = headers.get("x-tenant-id")
+    ctx = RequestContext.current()
+    tenant = ctx.get_header("X-Tenant-Id")
 
     if not tenant:
         return JSONResponse(
@@ -352,7 +352,7 @@ async def global_headers_demo():
 
     return {
         "global_headers_set_at_startup": global_hdrs,
-        "visible_in_current_context": {k: headers.get(k.lower()) for k in global_hdrs},
+        "visible_in_current_context": {k: ctx.get_header(k) for k in global_hdrs},
         "code_snippet": (
             "GraftConfig.set_headers({\n"
             '    "X-Service-Name": "graftcode-python-demo",\n'
@@ -465,8 +465,8 @@ async def async_demo():
             return {
                 "task": task_name,
                 "headers_seen": hdrs,
-                "correlation_id": hdrs.get("x-correlation-id"),
-                "tenant_id": hdrs.get("x-tenant-id"),
+                "correlation_id": ctx.get_header("X-Correlation-Id"),
+                "tenant_id": ctx.get_header("X-Tenant-Id"),
             }
 
         # invoke_with_headers_async takes a callable returning a coroutine
@@ -492,15 +492,16 @@ async def async_demo():
         ),
     )
 
-    outer_headers = RequestContext.current().get_headers()
+    outer = RequestContext.current()
+    outer_headers = outer.get_headers()
 
     return {
         "message": "Two concurrent async calls with fully isolated RequestContexts",
         "task_a": task_a,
         "task_b": task_b,
         "outer_context_unchanged": {
-            "tenant_id": outer_headers.get("x-tenant-id"),
-            "correlation_id": outer_headers.get("x-correlation-id"),
+            "tenant_id": outer.get_header("X-Tenant-Id"),
+            "correlation_id": outer.get_header("X-Correlation-Id"),
         },
         "isolation_verified": (
             task_a["tenant_id"] != task_b["tenant_id"]

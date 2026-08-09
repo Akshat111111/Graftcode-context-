@@ -158,7 +158,7 @@ pip install graftcode-context
 `RequestContext` is a thread-safe (async-safe) singleton that holds all request headers for the current execution scope. It uses Python's `contextvars.ContextVar` internally, which means each asyncio Task gets its own isolated copy automatically.
 
 ```python
-from graftcode_context import RequestContext
+from graftcode import RequestContext
 
 # Works anywhere in your call stack — handler, service, repository
 headers = RequestContext.current().get_headers()
@@ -259,7 +259,7 @@ Let's build a realistic service that handles JWT authentication and distributed 
 
 ```python
 from fastapi import FastAPI
-from graftcode_context import GraftConfig, RequestContext
+from graftcode import GraftConfig, RequestContext
 
 app = FastAPI()
 

@@ -10,11 +10,19 @@ used by services running behind the Graftcode Gateway.
 
 Key APIs
 --------
-- RequestContext.current()           — returns the active request context
-- RequestContext.current().get_headers()  — returns all propagated headers
-- GraftConfig.set_headers(dict)      — set global headers for all calls
-- GraftConfig.invoke_with_headers(fn, headers)        — per-call override (sync)
+- RequestContext.current()                             — returns the active request context
+- RequestContext.current().get_headers()               — returns all propagated headers (canonical casing)
+- RequestContext.current().get_header(name)            — case-insensitive single-header lookup
+- GraftConfig.set_headers(dict)                        — set global headers for all calls
+- GraftConfig.invoke_with_headers(fn, headers)         — per-call override (sync)
 - GraftConfig.invoke_with_headers_async(coro_fn, headers)  — per-call override (async)
+
+Header casing
+-------------
+Headers are stored with their **original casing** so that ``get_headers()`` returns
+canonical names (``"Authorization"``, ``"X-Tenant-Id"``, etc.) that match the official
+Graftcode docs and are directly usable with ``dict.get()``.  Single-key lookups via
+``get_header(name)`` are case-insensitive.
 
 Reference
 ---------
@@ -73,10 +81,11 @@ class RequestContext:
     """
 
     def __init__(self, headers: Optional[Dict[str, str]] = None) -> None:
-        # Normalise keys to lowercase for consistent case-insensitive lookup
-        self._headers: Dict[str, str] = (
-            {k.lower(): v for k, v in headers.items()} if headers else {}
-        )
+        # Store headers with their original casing so get_headers() returns
+        # canonical names ("Authorization", "X-Tenant-Id", etc.) that match
+        # the official Graftcode docs and work with plain dict.get().
+        # Case-insensitive lookup is provided by get_header() below.
+        self._headers: Dict[str, str] = dict(headers) if headers else {}
 
     # ------------------------------------------------------------------
     # Class-level accessor — the primary public API
@@ -129,17 +138,25 @@ class RequestContext:
 
     def get_header(self, name: str, default: Optional[str] = None) -> Optional[str]:
         """
-        Return a single header value by name (case-insensitive lookup).
+        Return a single header value by name, case-insensitively.
+
+        Because headers are stored with their original casing, this method
+        performs a linear scan comparing lowercased keys.  Use this instead of
+        ``get_headers().get(name)`` when the caller does not know the exact
+        casing of the stored key.
 
         Parameters
         ----------
         name:
-            Header name, e.g. ``"Authorization"`` or ``"X-Correlation-Id"``.
+            Header name, e.g. ``"Authorization"`` or ``"x-correlation-id"``.
         default:
             Returned when the header is absent.  Defaults to ``None``.
         """
-        # All keys are stored lowercase — normalise lookup key
-        return self._headers.get(name.lower(), default)
+        name_lower = name.lower()
+        for k, v in self._headers.items():
+            if k.lower() == name_lower:
+                return v
+        return default
 
     def __repr__(self) -> str:  # pragma: no cover
         keys = list(self._headers.keys())

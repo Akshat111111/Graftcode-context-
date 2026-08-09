@@ -42,8 +42,8 @@ class TestRequestContextConstruction:
     def test_headers_stored_correctly(self):
         headers = {"Authorization": "Bearer tok", "X-Tenant-Id": "acme"}
         ctx = RequestContext(headers)
-        # Keys are normalised to lowercase on storage
-        assert ctx.get_headers() == {"authorization": "Bearer tok", "x-tenant-id": "acme"}
+        # Keys are preserved with original casing
+        assert ctx.get_headers() == {"Authorization": "Bearer tok", "X-Tenant-Id": "acme"}
 
     def test_get_headers_returns_copy(self):
         ctx = RequestContext({"Authorization": "Bearer tok"})
@@ -97,8 +97,8 @@ class TestCurrentContext:
     def test_current_reflects_global_headers_outside_request(self):
         GraftConfig.set_headers({"X-Service-Name": "test-svc"})
         ctx = RequestContext.current()
-        # Keys are normalised to lowercase
-        assert ctx.get_headers().get("x-service-name") == "test-svc"
+        # Keys retain the casing they were set with
+        assert ctx.get_headers().get("X-Service-Name") == "test-svc"
 
     def test_bind_and_unbind_restores_previous(self):
         outer = RequestContext({"X-Stage": "outer"})
@@ -128,8 +128,8 @@ class TestThreadIsolation:
             ctx = RequestContext({"X-Tenant-Id": tenant})
             token = RequestContext._bind(ctx)
             barrier.wait()  # both threads in context simultaneously
-            # Key is normalised to lowercase
-            results[name] = RequestContext.current().get_headers().get("x-tenant-id")
+            # Key is preserved with original casing
+            results[name] = RequestContext.current().get_headers().get("X-Tenant-Id")
             RequestContext._unbind(token)
 
         t1 = threading.Thread(target=thread_fn, args=("t1", "tenant-alpha"))

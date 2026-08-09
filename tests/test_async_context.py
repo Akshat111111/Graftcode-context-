@@ -70,7 +70,7 @@ class TestRootEndpoint:
         resp = await client.get("/")
         data = resp.json()
         hdrs = data["context_summary"]["all_headers"]
-        assert hdrs.get("x-service-name") == "graftcode-python-demo"
+        assert hdrs.get("X-Service-Name") == "graftcode-python-demo"
 
 
 # ---------------------------------------------------------------------------
@@ -171,8 +171,8 @@ class TestAllHeaders:
         resp = await client.get("/all-headers")
         data = resp.json()
         raw = data["raw"]
-        assert raw.get("x-service-name") == "graftcode-python-demo"
-        assert raw.get("x-api-version") == "v1"
+        assert raw.get("X-Service-Name") == "graftcode-python-demo"
+        assert raw.get("X-Api-Version") == "v1"
 
 
 # ---------------------------------------------------------------------------
@@ -206,8 +206,8 @@ class TestInvokeDemo:
         assert resp.status_code == 200
         data = resp.json()
         inner = data["inner_context_during_call"]
-        assert inner.get("authorization") == "Bearer per-call-token"
-        assert inner.get("x-tenant-id") == "override-tenant"
+        assert inner.get("Authorization") == "Bearer per-call-token"
+        assert inner.get("X-Tenant-Id") == "override-tenant"
 
     async def test_outer_context_restored_after_call(self, client):
         resp = await client.post(

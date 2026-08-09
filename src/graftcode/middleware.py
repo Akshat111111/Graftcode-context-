@@ -18,6 +18,16 @@ Usage::
     app = FastAPI()
     app.add_middleware(GraftcodeMiddleware)
 
+Header casing note
+------------------
+ASGI servers (Uvicorn, Hypercorn, …) lowercase *all* header names before the
+app sees them — this is required by the ASGI spec.  The ``CANONICAL_CASING``
+map below restores the standard Graftcode header names to their canonical form
+so that ``RequestContext.current().get_headers().get("Authorization")`` works
+exactly as shown in the official Graftcode docs.  Custom / unknown headers are
+left in lowercase; use ``get_header(name)`` for case-insensitive lookup of
+those.
+
 Reference: https://docs.graftcode.com/security-and-trust/graftcode-context
 """
 
@@ -28,6 +38,39 @@ from starlette.types import ASGIApp
 
 from .context import GraftConfig, RequestContext, _global_headers, _global_headers_lock
 
+# ---------------------------------------------------------------------------
+# Canonical casing map
+#
+# ASGI delivers headers in lowercase.  Map lowercase → canonical so that
+# RequestContext.get_headers() returns the same casing the Graftcode docs use.
+# ---------------------------------------------------------------------------
+
+_CANONICAL_CASING: dict[str, str] = {
+    "authorization": "Authorization",
+    "x-correlation-id": "X-Correlation-Id",
+    "x-tenant-id": "X-Tenant-Id",
+    "x-user-id": "X-User-Id",
+    "x-request-id": "X-Request-Id",
+    "x-trace-id": "X-Trace-Id",
+    "x-api-key": "X-Api-Key",
+    "x-client-id": "X-Client-Id",
+    "x-session-id": "X-Session-Id",
+    "x-feature-flags": "X-Feature-Flags",
+    "x-forwarded-for": "X-Forwarded-For",
+    "x-service-name": "X-Service-Name",
+    "x-api-version": "X-Api-Version",
+    "x-environment": "X-Environment",
+    "x-agent-id": "X-Agent-Id",
+    "content-type": "Content-Type",
+    "accept": "Accept",
+    "user-agent": "User-Agent",
+}
+
+
+def _restore_casing(headers: dict[str, str]) -> dict[str, str]:
+    """Return a new dict with canonical casing applied where known."""
+    return {_CANONICAL_CASING.get(k, k): v for k, v in headers.items()}
+
 
 class GraftcodeMiddleware(BaseHTTPMiddleware):
     """
@@ -36,8 +79,11 @@ class GraftcodeMiddleware(BaseHTTPMiddleware):
     For every request it:
 
     1. Collects all incoming HTTP headers.
-    2. Merges them with any global headers set via ``GraftConfig.set_headers()``.
-    3. Binds a :class:`RequestContext` scoped to the current asyncio Task so
+    2. Restores canonical casing for standard Graftcode headers (``Authorization``,
+       ``X-Tenant-Id``, etc.) — required because ASGI servers lowercase all
+       header names before the app sees them.
+    3. Merges them with any global headers set via ``GraftConfig.set_headers()``.
+    4. Binds a :class:`RequestContext` scoped to the current asyncio Task so
        concurrent requests never interfere.
 
     The context is automatically cleared when the response is sent.
@@ -51,7 +97,7 @@ class GraftcodeMiddleware(BaseHTTPMiddleware):
         When ``False``, only Graftcode-standard headers are forwarded.
     """
 
-    # Headers the Graftcode Gateway propagates by default
+    # Headers the Graftcode Gateway propagates by default (lowercase for matching)
     GRAFTCODE_HEADERS = {
         "authorization",
         "x-correlation-id",
@@ -78,7 +124,7 @@ class GraftcodeMiddleware(BaseHTTPMiddleware):
         self.propagate_all_headers = propagate_all_headers
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        # 1. Collect headers
+        # 1. Collect headers (ASGI delivers them all-lowercase)
         if self.propagate_all_headers:
             incoming: dict[str, str] = dict(request.headers)
         else:
@@ -88,12 +134,15 @@ class GraftcodeMiddleware(BaseHTTPMiddleware):
                 if k.lower() in self.GRAFTCODE_HEADERS
             }
 
-        # 2. Merge with global defaults (request headers win on collision)
+        # 2. Restore canonical casing (e.g. "authorization" → "Authorization")
+        incoming = _restore_casing(incoming)
+
+        # 3. Merge with global defaults (request headers win on collision)
         with _global_headers_lock:
             merged = dict(_global_headers)
         merged.update(incoming)
 
-        # 3. Bind context for this async task
+        # 4. Bind context for this async task
         ctx = RequestContext(merged)
         token = RequestContext._bind(ctx)
         try:
