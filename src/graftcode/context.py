@@ -45,7 +45,7 @@ _request_context_var: contextvars.ContextVar[Optional["RequestContext"]] = (
 )
 
 #: Process-wide global headers (set via GraftConfig.set_headers).
-_global_headers: Dict[str, str] = {}
+_global_headers = {}
 _global_headers_lock = threading.RLock()
 
 
@@ -80,12 +80,13 @@ class RequestContext:
     Reference: https://docs.graftcode.com/security-and-trust/graftcode-context
     """
 
-    def __init__(self, headers: Optional[Dict[str, str]] = None) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         # Store headers with their original casing so get_headers() returns
         # canonical names ("Authorization", "X-Tenant-Id", etc.) that match
         # the official Graftcode docs and work with plain dict.get().
         # Case-insensitive lookup is provided by get_header() below.
-        self._headers: Dict[str, str] = dict(headers) if headers else {}
+        headers = args[0] if args else kwargs.get("headers")
+        self._headers = dict(headers) if headers else {}
 
     # ------------------------------------------------------------------
     # Class-level accessor — the primary public API
@@ -132,7 +133,7 @@ class RequestContext:
     # Public header accessors
     # ------------------------------------------------------------------
 
-    def get_headers(self) -> Dict[str, str]:
+    def get_headers(self) :
         """Return a copy of all propagated headers."""
         return dict(self._headers)
 
@@ -220,7 +221,7 @@ class GraftConfig:
     # ------------------------------------------------------------------
 
     @classmethod
-    def set_headers(cls, headers: Dict[str, str]) -> None:
+    def set_headers(cls, headers) -> None:
         """
         Set process-wide default headers for all Graft invocations.
 
@@ -253,7 +254,7 @@ class GraftConfig:
             _global_headers.update(headers)
 
     @classmethod
-    def get_global_headers(cls) -> Dict[str, str]:
+    def get_global_headers(cls) :
         """Return a snapshot of all currently configured global headers."""
         with _global_headers_lock:
             return dict(_global_headers)
@@ -272,7 +273,7 @@ class GraftConfig:
     def invoke_with_headers(
         cls,
         fn: Callable[[], T],
-        headers: Dict[str, str],
+        headers,
     ) -> T:
         """
         Invoke *fn* with the given *headers* merged into the request context.
@@ -318,7 +319,7 @@ class GraftConfig:
     async def invoke_with_headers_async(
         cls,
         fn: Callable[[], Awaitable[T]],
-        headers: Dict[str, str],
+        headers,
     ) -> T:
         """
         Async version of :meth:`invoke_with_headers`.
@@ -362,7 +363,7 @@ class GraftConfig:
     # ------------------------------------------------------------------
 
     @classmethod
-    def _merge(cls, override: Dict[str, str]) -> Dict[str, str]:
+    def _merge(cls, override: Dict[str, str]) :
         """
         Build the effective header dict: global defaults ← current ctx ← override.
         """

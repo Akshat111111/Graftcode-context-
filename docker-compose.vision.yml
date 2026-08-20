@@ -1,0 +1,19 @@
+# docker-compose.vision.yml
+# -------------------------
+# Runs the Graftcode Vision demo for the Request Context Library.
+#
+# Usage:
+#   docker-compose -f docker-compose.vision.yml up --build
+#
+# After the container starts, open: http://localhost:81/GV
+# All 8 demo cases appear as interactive "Try it out" forms.
+
+services:
+  request-context-vision:
+    build:
+      context: .
+      dockerfile: Dockerfile.vision
+    ports:
+      - "80:80"   # Graft API endpoint (programmatic calls)
+      - "81:81"   # Graftcode Vision browser UI
+    restart: unless-stopped

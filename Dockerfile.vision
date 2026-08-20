@@ -1,0 +1,36 @@
+# Dockerfile.vision
+# -----------------
+# Builds the Graftcode Vision container for the Request Context Demo.
+# Follows the official Graftcode docs pattern exactly:
+#   https://docs.graftcode.com/quick-start/expose-backend/python
+#
+# Run:
+#   docker-compose -f docker-compose.vision.yml up --build
+# Then open: http://localhost:81/GV
+
+FROM python:3.13-bookworm
+
+WORKDIR /usr/app
+
+# Copy the Vision module and its pyproject.toml
+COPY vision/ /usr/app/request-context-demo/
+
+# Copy the local graftcode library so RequestContext is importable inside gg
+COPY src/graftcode/ /usr/app/request-context-demo/graftcode/
+
+# Download and install the Graftcode Gateway (gg) binary
+RUN apt-get update \
+ && apt-get install -y wget \
+ && wget -O /usr/app/gg.deb https://github.com/grft-dev/graftcode-gateway/releases/latest/download/gg_linux_amd64.deb \
+ && dpkg -i /usr/app/gg.deb \
+ && rm /usr/app/gg.deb \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
+
+# Port 80  -- Graft API endpoint (programmatic calls)
+# Port 81  -- Graftcode Vision browser UI  ->  http://localhost:81/GV
+EXPOSE 80
+EXPOSE 81
+
+# gg auto-discovers all public methods of RequestContextDemo from the module.
+CMD ["gg", "--modules", "./request-context-demo/"]
