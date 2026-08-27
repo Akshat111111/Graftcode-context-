@@ -19,7 +19,7 @@ To apply: open Graftcode Vision at `http://localhost:81/GV`, click the **gear ic
 
 ---
 
-## 2. Running the 8 Demo Cases
+## 2. Running the 7 Demo Cases
 
 Navigate to `http://localhost:81/GV` → expand **RequestContextDemo** in the left sidebar → click a method → click **"Try it out"** → fill inputs → click **"Run"**.
 
@@ -35,13 +35,14 @@ Navigate to `http://localhost:81/GV` → expand **RequestContextDemo** in the le
   "service": "Graftcode Request Context Demo (Python)",
   "version": "1.0.0",
   "status": "healthy",
-  "docs": "https://docs.graftcode.com/security-and-trust/graftcode-context",
-  "global_headers_always_present": {
-    "X-Service-Name": "graftcode-python-demo",
-    "X-Api-Version": "v1",
-    "X-Environment": "local-dev"
+  "pypi": "https://pypi.org/project/graftcode-context/",
+  "headers_in_context": {
+    "host": "localhost",
+    "user-agent": "Mozilla/5.0 ...",
+    "upgrade": "websocket",
+    "...": "..."
   },
-  "explanation": "GraftConfig.set_headers() was called once at startup. RequestContext.current() returns them in every context -- no per-request code required."
+  "explanation": "Even though we didn't explicitly set any headers, the Graftcode Gateway automatically captured the HTTP handshake headers that initiated the WebSocket connection and injected them into the RequestContext before calling our function."
 }
 ```
 
@@ -58,18 +59,14 @@ Navigate to `http://localhost:81/GV` → expand **RequestContextDemo** in the le
 **Expected output:**
 ```json
 {
-  "message": "Authorization header read from RequestContext -- zero boilerplate",
+  "message": "Authorization header read from RequestContext — zero boilerplate",
   "token_type": "Bearer",
   "token_preview": "eyJhbGciOiJSUzI1...",
   "full_authorization": "Bearer eyJhbGciOiJSUzI1NiJ9.payload.sig",
-  "user_id": null,
   "all_headers_in_context": {
-    "X-Service-Name": "graftcode-python-demo",
-    "X-Api-Version": "v1",
-    "X-Environment": "local-dev",
     "Authorization": "Bearer eyJhbGciOiJSUzI1NiJ9.payload.sig"
   },
-  "how_gateway_does_it": "The Graftcode Gateway intercepts the client request, validates the JWT, and calls invoke_with_headers() before your handler runs. Your handler just calls RequestContext.current() -- that is it."
+  "how_gateway_does_it": "The Graftcode Gateway intercepts the client request, validates the JWT, and calls RequestContext.current().set_headers() before your handler runs. Your handler just calls get_headers() — that is it."
 }
 ```
 
@@ -85,11 +82,7 @@ Navigate to `http://localhost:81/GV` → expand **RequestContextDemo** in the le
   "http_status_equivalent": 401,
   "error": "No Authorization header in context",
   "authorization_value": null,
-  "available_headers": [
-    "X-Service-Name",
-    "X-Api-Version",
-    "X-Environment"
-  ],
+  "available_headers": [],
   "hint": "In production the Graftcode Gateway rejects unauthenticated requests before they reach your service. This case shows what your handler sees when no Authorization header is present."
 }
 ```
@@ -101,21 +94,17 @@ Navigate to `http://localhost:81/GV` → expand **RequestContextDemo** in the le
 **Inputs:**
 
 | Field              | Value                                      |
-|--------------------|--------------------------------------------|
-| `x_correlation_id` | _(leave blank for auto-generation)_ **or** type e.g. `req-5f3a-2026` to supply one |
+|--------------------|---------------------------------------------|
+| `x_correlation_id` | _(leave blank for auto-generation)_ **or** type e.g. `req-5f3a-2026` |
 
 **Expected output (blank input — auto-generated):**
 ```json
 {
   "correlation_id": "auto-<uuid>",
   "was_auto_generated": true,
-  "message": "No X-Correlation-Id supplied -- auto-generated for this response",
+  "message": "No X-Correlation-Id supplied — auto-generated for this response",
   "distributed_tracing_tip": "In production every service reads the same X-Correlation-Id from RequestContext and includes it in logs -- end-to-end tracing without manual propagation.",
-  "all_headers_in_context": {
-    "X-Service-Name": "graftcode-python-demo",
-    "X-Api-Version": "v1",
-    "X-Environment": "local-dev"
-  }
+  "all_headers_in_context": {}
 }
 ```
 
@@ -141,11 +130,7 @@ Navigate to `http://localhost:81/GV` → expand **RequestContextDemo** in the le
   "http_status_equivalent": 400,
   "error": "X-Tenant-Id header not found in context",
   "tenant_id_value": null,
-  "available_headers": [
-    "X-Service-Name",
-    "X-Api-Version",
-    "X-Environment"
-  ],
+  "available_headers": [],
   "hint": "In production the Graftcode Gateway resolves the tenant from the JWT and injects X-Tenant-Id automatically. This case shows the error path when it is absent."
 }
 ```
@@ -165,11 +150,8 @@ Navigate to `http://localhost:81/GV` → expand **RequestContextDemo** in the le
 **Expected output:**
 ```json
 {
-  "total_headers": 6,
+  "total_headers": 3,
   "graftcode_x_headers": {
-    "X-Service-Name": "graftcode-python-demo",
-    "X-Api-Version": "v1",
-    "X-Environment": "local-dev",
     "X-Correlation-Id": "trace-001",
     "X-Tenant-Id": "acme-corp"
   },
@@ -178,85 +160,37 @@ Navigate to `http://localhost:81/GV` → expand **RequestContextDemo** in the le
   },
   "other": {},
   "raw": {
-    "X-Service-Name": "graftcode-python-demo",
-    "X-Api-Version": "v1",
-    "X-Environment": "local-dev",
     "Authorization": "Bearer tok",
     "X-Correlation-Id": "trace-001",
     "X-Tenant-Id": "acme-corp"
   },
-  "note": "X-Service-Name, X-Api-Version, and X-Environment are injected globally via GraftConfig.set_headers() at startup and appear in every context alongside the per-request headers."
+  "note": "All three headers are visible in a single RequestContext.current() call — no middleware wiring, no dependency injection, no parameter threading required."
 }
 ```
 
 ---
 
-### Case 7 — `global_headers_demo`
+### Case 7 — `context_replace_demo`
 
-**Inputs:** _(none)_
+**Inputs:**
 
-**Expected output:**
-```json
-{
-  "global_headers_set_at_startup": {
-    "X-Service-Name": "graftcode-python-demo",
-    "X-Api-Version": "v1",
-    "X-Environment": "local-dev"
-  },
-  "visible_in_current_context": {
-    "X-Service-Name": "graftcode-python-demo",
-    "X-Api-Version": "v1",
-    "X-Environment": "local-dev"
-  },
-  "code_snippet": "GraftConfig.set_headers({\n    \"X-Service-Name\": \"graftcode-python-demo\",\n    \"X-Api-Version\": \"v1\",\n    \"X-Environment\": \"local-dev\",\n})",
-  "explanation": "Call GraftConfig.set_headers() once at startup. Every subsequent RequestContext will automatically contain these headers -- no manual injection into each handler or function call required."
-}
-```
-
----
-
-### Case 8 — `async_isolation_demo`
-
-**Inputs:** _(none)_
-
-> ⏱ May take 1–2 seconds — two concurrent async tasks are running.
+| Field           | Value           |
+|-----------------|-----------------|
+| `first_tenant`  | `tenant-alpha`  |
+| `second_tenant` | `tenant-beta`   |
 
 **Expected output:**
 ```json
 {
-  "message": "Two concurrent async calls with fully isolated RequestContexts",
-  "task_a": {
-    "task": "Task-A",
-    "tenant_id": "tenant-alpha",
-    "correlation_id": "corr-alpha-<hex>",
-    "authorization": "Bearer alpha-token",
-    "all_headers_seen": {
-      "X-Service-Name": "graftcode-python-demo",
-      "X-Api-Version": "v1",
-      "X-Environment": "local-dev",
-      "X-Tenant-Id": "tenant-alpha",
-      "X-Correlation-Id": "corr-alpha-<hex>",
-      "Authorization": "Bearer alpha-token"
-    }
+  "after_first_set_headers": {
+    "X-Tenant-Id": "tenant-alpha",
+    "X-Request": "first"
   },
-  "task_b": {
-    "task": "Task-B",
-    "tenant_id": "tenant-beta",
-    "correlation_id": "corr-beta-<hex>",
-    "authorization": "Bearer beta-token",
-    "all_headers_seen": {
-      "X-Service-Name": "graftcode-python-demo",
-      "X-Api-Version": "v1",
-      "X-Environment": "local-dev",
-      "X-Tenant-Id": "tenant-beta",
-      "X-Correlation-Id": "corr-beta-<hex>",
-      "Authorization": "Bearer beta-token"
-    }
+  "after_second_set_headers": {
+    "X-Tenant-Id": "tenant-beta",
+    "X-Request": "second"
   },
-  "outer_context_tenant_id": null,
-  "outer_context_unchanged": true,
-  "isolation_verified": true,
-  "how_it_works": "Python's contextvars.ContextVar provides copy-on-write semantics for asyncio Tasks. invoke_with_headers_async() binds a new context for each call so concurrent requests never share or overwrite each other's headers."
+  "tenant_changed": true,
+  "explanation": "set_headers() replaces all headers on the RequestContext instance. The Gateway calls this once per request before your handler runs, so each request always starts with a fresh, correct context."
 }
 ```
-
