@@ -302,6 +302,8 @@ When deployed behind the Gateway, the Gateway takes over context injection entir
 
 ## Real-World Use Cases
 
+> **Note:** The following snippets are conceptual examples demonstrating how you might use `RequestContext` in various layers of your application (like middlewares, repositories, or loggers). They are intended to illustrate the pattern, not to be copy-pasted as runnable code.
+
 ### JWT Authentication
 
 The Gateway validates the JWT signature and expiry. Your service trusts the forwarded `Authorization` header:
