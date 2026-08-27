@@ -197,7 +197,6 @@ Result is serialised to JSON and returned to Vision — displayed in the UI
 | Observation | Why it proves dynamic execution |
 |---|---|
 | Case 4 (blank input) returns `"correlation_id": "auto-<uuid>"` | UUID is newly generated on every run — impossible to hardcode |
-| Case 8 returns `corr-alpha-<hex>`, `corr-beta-<hex>` | Hex suffix changes on every run |
 | Case 2 — change the `authorization` field → output reflects your exact value | Directly reads from the `RequestContext` you created |
 | Cases 3 & 5 show `null` for missing headers | The context truly has no `Authorization`/`X-Tenant-Id` — not a preset |
 
