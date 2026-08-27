@@ -105,7 +105,7 @@ the Gateway handles context injection transparently.
 python-request-context/
 ├── vision/
 │   ├── __init__.py
-│   ├── request_context_demo.py   # 8-method demo class — the Vision module
+│   ├── request_context_demo.py   # 7-method demo class — the Vision module
 │   ├── pyproject.toml            # Required by gg for module discovery
 │   └── demo.py                   # Local runner (no Docker needed)
 ├── tests/
