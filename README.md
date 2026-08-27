@@ -11,7 +11,6 @@ The demo cases are exposed via **Graftcode Vision**: the built-in browser UI
 that ships with every `gg` (Graftcode Gateway) deployment. No HTTP framework,
 no REST routes, no controllers — just a plain Python class.
 
-> **Owner:** @your-github-handle
 
 ---
 
