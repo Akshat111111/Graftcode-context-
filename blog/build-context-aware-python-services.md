@@ -1,6 +1,6 @@
 # Build Context-Aware Python Services Without Custom Middleware Using Graftcode
 
-> 
+> **PyPI package:** [`graftcode-context`](https://pypi.org/project/graftcode-context/)
 
 ---
 
@@ -140,7 +140,7 @@ Better! But now you're maintaining your own context library. You need to add new
 Graftcode Context is the standardised solution that works on both sides of the equation:
 
 - **Server side:** The Graftcode Gateway automatically populates `RequestContext` before your handler runs. Zero configuration.
-- **Client side:** `GraftConfig` lets you set headers globally or per-call from any code that invokes Graftcode services.
+- **Client side:** You can easily set headers on the context from any code that invokes Graftcode services using `RequestContext.current().set_headers()`.
 
 ![Graftcode Request Context Architecture](assets/Request%20Context%20.png)
 
@@ -150,14 +150,13 @@ Install from PyPI:
 pip install graftcode-context
 ```
 
-> Package: https://pypi.org/project/graftcode-context/  
-> Docs: https://docs.graftcode.com/security-and-trust/graftcode-context
+> Package: https://pypi.org/project/graftcode-context/
 
 ---
 
 ## Understanding RequestContext
 
-`RequestContext` is a thread-safe (async-safe) singleton that holds all request headers for the current execution scope. It uses Python's `contextvars.ContextVar` internally, which means each asyncio Task gets its own isolated copy automatically.
+`RequestContext` is a thread-safe (async-safe) construct that holds all request headers for the current execution scope. It uses Python's `contextvars.ContextVar` internally.
 
 ```python
 from graftcode import RequestContext
@@ -179,23 +178,15 @@ Graftcode Context works with **any** Python HTTP server — or no framework at a
 
 ```python
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from graftcode import GraftConfig, RequestContext
-
-def _inject_context(raw_headers: dict):
-    """Mirrors what the Graftcode Gateway does in production."""
-    class _Scope:
-        def __enter__(self):
-            ctx = RequestContext(raw_headers)
-            self._token = RequestContext._bind(ctx)
-        def __exit__(self, *_):
-            RequestContext._unbind(self._token)
-    return _Scope()
+from graftcode import RequestContext
 
 class MyHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         # Inject context — in production the Gateway does this for you
-        with _inject_context(dict(self.headers)):
-            handle_orders(self)
+        ctx = RequestContext.current()
+        ctx.set_headers(dict(self.headers))
+        
+        handle_orders(self)
 
 def handle_orders(h):
     # Zero boilerplate — identical whether hosted on http.server,
@@ -227,70 +218,13 @@ class OrderService:
 
 ---
 
-## Global vs Per-Request Headers
-
-Graftcode Context provides two orthogonal header-setting mechanisms through `GraftConfig`, designed for different lifetime requirements.
-
-### GraftConfig.set_headers() — Global, Process-wide
-
-Call this **once at startup** to set headers that apply to all subsequent Graftcode invocations:
-
-```python
-from graftcode import GraftConfig
-
-# In your main.py, app factory, or startup event
-GraftConfig.set_headers({
-    "Authorization": "Bearer token123",
-    "X-Correlation-Id": "abc-123",
-})
-```
-
-After this call, every `RequestContext` in the process will contain these headers. Typical use cases:
-
-- **Service identity:** `X-Service-Name: payments-service`
-- **API version:** `X-Api-Version: v2`
-- **Startup JWT:** Set once after authenticating at boot time
-
-### GraftConfig.invoke_with_headers() — Per-call, Isolated
-
-Use this when you need different headers for a **single invocation**:
-
-```python
-from graftcode import GraftConfig
-
-# Synchronous
-result = GraftConfig.invoke_with_headers(
-    lambda: MyService.do_something(),
-    {"Authorization": "Bearer different-token"},
-)
-
-# Asynchronous
-result = await GraftConfig.invoke_with_headers_async(
-    lambda: MyService.do_something_async(),
-    {"Authorization": "Bearer different-token"},
-)
-```
-
-The callable runs with the merged context (global defaults + current context + override), and the original context is **automatically restored** when the callable returns — even if an exception is raised.
-
-**Header precedence:** per-call > current context > global defaults
-
----
-
 ## Example: Authentication & Correlation IDs
 
 Let's build a realistic service that handles JWT authentication and distributed tracing without any boilerplate.  This example uses the standard-library `http.server` — no framework required:
 
 ```python
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from graftcode import GraftConfig, RequestContext
-
-# Set service identity once at startup
-GraftConfig.set_headers({
-    "X-Service-Name": "order-service",
-    "X-Api-Version": "v2",
-})
-
+from graftcode import RequestContext
 
 def handle_get_order(h: BaseHTTPRequestHandler, order_id: str) -> None:
     headers = RequestContext.current().get_headers()
@@ -319,73 +253,25 @@ Compare this to the FastAPI Depends() version: **3 fewer parameters, no framewor
 
 ---
 
-## Async Context Propagation with contextvars
-
-The critical correctness guarantee for async services is that **concurrent requests never see each other's context**. Graftcode Context achieves this using Python's `contextvars` module.
-
-### How Python contextvars work
-
-Each `asyncio.Task` starts with a *copy* of the context that existed when it was created (copy-on-write semantics). Setting a `ContextVar` inside a task affects only that task's copy:
-
-```python
-import asyncio, contextvars
-
-var = contextvars.ContextVar("x")
-var.set("global")
-
-async def task_a():
-    var.set("task-a")
-    await asyncio.sleep(0.1)
-    assert var.get() == "task-a"  # ✓ isolated
-
-async def task_b():
-    var.set("task-b")
-    await asyncio.sleep(0.1)
-    assert var.get() == "task-b"  # ✓ isolated
-
-asyncio.run(asyncio.gather(task_a(), task_b()))
-```
-
-### Graftcode's guarantee
-
-`GraftConfig.invoke_with_headers_async()` binds a new `RequestContext` to the calling coroutine before invoking your callable. Even if two concurrent tasks both call `invoke_with_headers_async()` with different headers, each gets a completely private view:
-
-```python
-async def handle_request(tenant: str) -> dict:
-    async def _work():
-        await asyncio.sleep(0.05)  # simulate I/O
-        headers = RequestContext.current().get_headers()
-        return {"tenant": headers.get("X-Tenant-Id")}
-
-    return await GraftConfig.invoke_with_headers_async(
-        _work, {"X-Tenant-Id": tenant}
-    )
-
-# Run concurrently — guaranteed isolation
-results = await asyncio.gather(
-    handle_request("acme-corp"),
-    handle_request("startup-co"),
-    handle_request("demo-tenant"),
-)
-# results[0]["tenant"] == "acme-corp"    ✓
-# results[1]["tenant"] == "startup-co"  ✓
-# results[2]["tenant"] == "demo-tenant" ✓
-```
-
----
-
 ## Running Locally and with Docker / Graftcode Gateway
 
 ### Local development
 
 No framework, no extra tooling — just Python. You can run our interactive demo script:
 
+**bash / zsh:**
 ```bash
 pip install -r requirements-dev.txt
 PYTHONPATH=src python vision/demo.py
 ```
 
-The script exercises all 8 demo cases directly and prints the live JSON output to your terminal, injecting context locally exactly the same way the Gateway does in production.
+**PowerShell:**
+```powershell
+pip install -r requirements-dev.txt
+$env:PYTHONPATH="src"; python vision/demo.py
+```
+
+The script exercises all 7 demo cases directly and prints the live JSON output to your terminal, injecting context locally exactly the same way the Gateway does in production.
 
 ### Docker
 
@@ -411,7 +297,7 @@ Override host and ports when auto-detect from the browser does not match your lo
 
 ### Graftcode Gateway integration
 
-When deployed behind the Gateway, the Gateway takes over context injection entirely — the `_inject_context()` call in your server is not needed.  Your handler code (`RequestContext.current()` calls) is **completely unchanged**.  The transition from local to production is zero-code.
+When deployed behind the Gateway, the Gateway takes over context injection entirely — the manual `set_headers()` call in your server is not needed.  Your handler code (`RequestContext.current()` calls) is **completely unchanged**.  The transition from local to production is zero-code.
 
 ---
 
@@ -531,7 +417,8 @@ With Graftcode Context, an agent runtime can set headers once at the start of an
 
 ```python
 # Agent runtime: set context at the start of an agent run
-GraftConfig.set_headers({
+ctx = RequestContext.current()
+ctx.set_headers({
     "Authorization": f"Bearer {user_jwt}",
     "X-Tenant-Id": tenant_id,
     "X-Correlation-Id": f"agent-run-{run_id}",
@@ -550,21 +437,20 @@ For **Model Context Protocol (MCP)** servers built on Graftcode, request context
 
 ## Live API Demonstration
 
-To prove these concepts in action, we expose all 8 demo cases through **Graftcode Vision**, the auto-generated browser UI that ships with every Graftcode Gateway. Here are the results demonstrating how Graftcode Context behaves:
+To prove these concepts in action, we expose all 7 demo cases through **Graftcode Vision**, the auto-generated browser UI that ships with every Graftcode Gateway. Here are the results demonstrating how Graftcode Context behaves:
 
 > **All outputs are dynamically generated** from live `RequestContext` state —
 > not templates or mocks. Change an input and the output changes accordingly.
 
 | # | Method | Inputs | What it demonstrates |
 |---|--------|--------|----------------------|
-| 1 | `health_check()` | none | `GraftConfig.set_headers()` global headers present in every context automatically |
+| 1 | `health_check()` | none | `RequestContext.current().get_headers()` on an empty context — what you see before any headers are set |
 | 2 | `auth_demo(authorization)` | `authorization` string | Gateway pattern: bind `Authorization` header → read it back via `RequestContext` |
 | 3 | `auth_demo_missing_token()` | none | What a handler sees when no `Authorization` is present → 401-style error response |
 | 4 | `correlation_demo(x_correlation_id)` | optional ID string | Propagate a supplied ID; auto-generate a UUID when the field is blank |
 | 5 | `tenant_demo_missing_id()` | none | What a handler sees when no `X-Tenant-Id` is present → 400-style error response |
-| 6 | `all_headers(authorization, x_correlation_id, x_tenant_id)` | all 3 headers | All per-request headers merged with global headers in one `RequestContext` — 6 total |
-| 7 | `global_headers_demo()` | none | Same 3 startup headers appear in `global_headers_set_at_startup` and `visible_in_current_context` |
-| 8 | `async_isolation_demo()` | none | Two concurrent async tasks with separate contexts — `isolation_verified: true` |
+| 6 | `all_headers(authorization, x_correlation_id, x_tenant_id)` | all 3 headers | All per-request headers set in one `RequestContext` |
+| 7 | `context_replace_demo(first_tenant, second_tenant)` | two tenant IDs | `set_headers()` replaces the full context — shows Gateway per-request reset behaviour |
 
 ### How Vision Executes Each Case
 
@@ -575,11 +461,11 @@ Vision sends it over WebSocket (ws://localhost:80/ws) to gg
         ↓
 gg calls the method with your input as a Python argument
         ↓
-The method calls GraftConfig.invoke_with_headers(_handler, {"Authorization": your_value})
+The method calls RequestContext.current().set_headers({"Authorization": your_value})
         ↓
-A real RequestContext is created in memory with that header bound
+A real RequestContext is populated in memory with that header bound
         ↓
-_handler() reads RequestContext.current().get_headers() — live, from memory
+The handler code reads RequestContext.current().get_headers() — live, from memory
         ↓
 Result is serialised to JSON and returned to Vision — displayed in the UI
 ```
@@ -589,15 +475,14 @@ Result is serialised to JSON and returned to Vision — displayed in the UI
 | Observation | Why it proves dynamic execution |
 |---|---|
 | Case 4 (blank input) returns `"correlation_id": "auto-<uuid>"` | UUID is newly generated on every run — impossible to hardcode |
-| Case 8 returns `corr-alpha-<hex>`, `corr-beta-<hex>` | Hex suffix changes on every run |
 | Case 2 — change the `authorization` field → output reflects your exact value | Directly reads from the `RequestContext` you created |
 | Cases 3 & 5 show `null` for missing headers | The context truly has no `Authorization`/`X-Tenant-Id` — not a preset |
 
 ---
 
-### Case 1: Health Check & Global Headers
+### Case 1: Health Check
 ![Case 1: Health Check](assets/Case%201-%20healthCheck.png)
-**Explanation:** The root endpoint shows our service is healthy and successfully reads global headers (like `X-Service-Name`) that were injected once at startup.
+**Explanation:** The root endpoint shows our service is healthy. Notice that the context isn't empty — the Graftcode Gateway automatically captured the real HTTP headers that initiated the WebSocket connection (like `user-agent` and `host`) and injected them into the `RequestContext` before invoking our method.
 
 ### Case 2: Auth Demo (With Bearer Token)
 ![Case 2: Auth Demo with Token](assets/Case%202-Auth.png)
@@ -618,17 +503,11 @@ Result is serialised to JSON and returned to Vision — displayed in the UI
 ### Case 6: Request Context Aggregation
 ![Case 6: All Headers part 1](assets/Case%206a%20-%20Headers.png)
 ![Case 6: All Headers part 2](assets/case%206b-Headers.png)
-**Explanation:** A comprehensive view of all headers currently active in the request context (6 total), aggregating both global configuration and per-request overrides.
+**Explanation:** A comprehensive view of all headers currently active in the request context, showing that all headers can be accessed with a single call.
 
-### Case 7: Global Header Enforcement
-![Case 7: Global Headers Demo](assets/Case%207-Global.png)
-**Explanation:** Calling `GraftConfig.set_headers()` guarantees specific identifiers (like API versions) are automatically present in every downstream request.
-
-### Case 8: Concurrency & Async Isolation
-![Case 8: Async Demo part 1](assets/case%208a-Isolation.png)
-![Case 8: Async Demo part 2](assets/Case%208b-Isolation.png)
-**Explanation:** Two concurrent tasks execute simultaneously with differing headers (Task A vs Task B). Python's `contextvars` provides copy-on-write semantics, preventing cross-pollution entirely.
-
+### Case 7: Context Replacement Enforcement
+![Case 7: Context Replace Demo](assets/Case%207-Global.png)
+**Explanation:** Calling `set_headers()` replaces the existing context, which mimics exactly how the Graftcode Gateway sets a clean, new context per-request.
 
 ---
 
@@ -642,16 +521,14 @@ Traditional solutions — Flask's `g`, FastAPI's dependency injection, hand-roll
 
 | Scenario | API |
 |----------|-----|
+| Setting headers into context | `RequestContext.current().set_headers(headers)` |
 | Reading headers in a handler | `RequestContext.current().get_headers()` |
-| Global headers for all calls | `GraftConfig.set_headers(headers)` |
-| Per-call override (sync) | `GraftConfig.invoke_with_headers(fn, headers)` |
-| Per-call override (async) | `GraftConfig.invoke_with_headers_async(fn, headers)` |
 
 The result is service code that is:
 
 - **Decoupled** from the HTTP framework — domain logic carries no framework imports
-- **Automatically async-safe** — Python's `contextvars` provides the guarantee
-- **Trivially testable** — call `GraftConfig.set_headers()` in test setup, done
+- **Automatically async-safe** — Python's `contextvars` provides the guarantee internally
+- **Trivially testable** — call `RequestContext.current().set_headers()` in test setup, done
 - **Production-ready** — the Graftcode Gateway handles propagation; zero code changes when you deploy
 
 If you're building distributed Python services — or AI agents that call services — Graftcode Context is the right abstraction for propagating request-scoped data across your entire call graph.
@@ -668,5 +545,4 @@ docker-compose -f docker-compose.vision.yml up --build
 ```
 
 **Official resources:**
-- Docs: https://docs.graftcode.com/security-and-trust/graftcode-context
 - PyPI: https://pypi.org/project/graftcode-context/

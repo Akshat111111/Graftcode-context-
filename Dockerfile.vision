@@ -15,8 +15,8 @@ WORKDIR /usr/app
 # Copy the Vision module and its pyproject.toml
 COPY vision/ /usr/app/request-context-demo/
 
-# Copy the local graftcode library so RequestContext is importable inside gg
-COPY src/graftcode/ /usr/app/request-context-demo/graftcode/
+# Install the official graftcode-context package from PyPI
+RUN pip install --no-cache-dir graftcode-context==1.0.0
 
 # Download and install the Graftcode Gateway (gg) binary
 RUN apt-get update \
