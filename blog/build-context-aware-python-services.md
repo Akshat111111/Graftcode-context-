@@ -142,7 +142,6 @@ Graftcode Context is the standardised solution that works on both sides of the e
 - **Server side:** The Graftcode Gateway automatically populates `RequestContext` before your handler runs. Zero configuration.
 - **Client side:** You can easily set headers on the context from any code that invokes Graftcode services using `RequestContext.current().set_headers()`.
 
-![Graftcode Request Context Architecture](assets/Request%20Context%20.png)
 
 Install from PyPI:
 
@@ -293,7 +292,7 @@ Override host and ports when auto-detect from the browser does not match your lo
 
 *(Note: We use this split-port configuration (Vision UI on 81, Gateway execution on 80) in this Docker setup to cleanly separate the browser UI traffic from the WebSocket/MCP execution traffic, demonstrating how the Gateway can operate with isolated ports for security and routing purposes.)*
 
-![Gateway Connection Settings](assets/Gateway%20connection.png)
+![Gateway Connection Settings](assets/Demo%20Dashboard.png)
 
 ### Graftcode Gateway integration
 
@@ -481,32 +480,33 @@ Result is serialised to JSON and returned to Vision — displayed in the UI
 ---
 
 ### Case 1: Health Check
-![Case 1: Health Check](assets/Case%201-%20healthCheck.png)
+![Case 1: Health Check part 1](assets/case%201%20a.png)
+![Case 1: Health Check part 2](assets/Case%201%20b.png)
 **Explanation:** The root endpoint shows our service is healthy. Notice that the context isn't empty — the Graftcode Gateway automatically captured the real HTTP headers that initiated the WebSocket connection (like `user-agent` and `host`) and injected them into the `RequestContext` before invoking our method.
 
 ### Case 2: Auth Demo (With Bearer Token)
-![Case 2: Auth Demo with Token](assets/Case%202-Auth.png)
+![Case 2: Auth Demo with Token](assets/case%202.png)
 **Explanation:** When a valid token is provided, `RequestContext` reads the `Authorization` header effortlessly. No dependency injection or manual extraction needed.
 
 ### Case 3: Auth Demo (Missing Token)
-![Case 3: Auth Demo without Token](assets/Case%203-Missing%20token.png)
+![Case 3: Auth Demo without Token](assets/case%203.png)
 **Explanation:** If the token is missing, the handler identifies the absence from the context and rightfully returns a 401 Unauthorized error equivalent.
 
 ### Case 4: Correlation ID Propagation
-![Case 4: Correlation ID](assets/Case%204-Corelation.png)
+![Case 4: Correlation ID](assets/case%204.png)
 **Explanation:** The `X-Correlation-Id` flows smoothly into the response. If left blank, it auto-generates a UUID to ensure tracing is never broken.
 
 ### Case 5: Tenant Isolation
-![Case 5: Tenant Demo](assets/Case%205-Tenant.png)
+![Case 5: Tenant Demo](assets/case%205.png)
 **Explanation:** Demonstrates strict isolation; failing to provide an `X-Tenant-Id` safely returns a 400 error, preventing cross-tenant data leakage.
 
 ### Case 6: Request Context Aggregation
-![Case 6: All Headers part 1](assets/Case%206a%20-%20Headers.png)
-![Case 6: All Headers part 2](assets/case%206b-Headers.png)
+![Case 6: All Headers part 1](assets/case%206%20a.png)
+![Case 6: All Headers part 2](assets/case%206%20b.png)
 **Explanation:** A comprehensive view of all headers currently active in the request context, showing that all headers can be accessed with a single call.
 
 ### Case 7: Context Replacement Enforcement
-![Case 7: Context Replace Demo](assets/Case%207-Global.png)
+![Case 7: Context Replace Demo](assets/case%207.png)
 **Explanation:** Calling `set_headers()` replaces the existing context, which mimics exactly how the Graftcode Gateway sets a clean, new context per-request.
 
 ---
