@@ -12,16 +12,20 @@ How the demo works
 ------------------
 In production the Graftcode Gateway calls ``RequestContext.current().set_headers()``
 before your handler runs, binding the inbound request headers into the active
-context. Because Graftcode Vision calls methods directly (not via HTTP), each
-method simulates that step explicitly so you can see exactly what the Gateway
-does — your handler code (``RequestContext.current().get_headers()``) is
-identical in both cases.
+context. This demo shows both sides of that behaviour:
+
+- **Case 1** (``health_check``): the Gateway injects the real WebSocket handshake
+  headers automatically — the handler calls only ``get_headers()``, never
+  ``set_headers()``. This is the purest demonstration of Gateway injection.
+- **Cases 2–7**: each method calls ``set_headers()`` explicitly with headers built
+  from the Vision form input, making the injection step visible. Your handler
+  code (``get_headers()``) is identical in both Vision and production.
 
 API used (graftcode-context 1.0.0)
 -----------------------------------
-- ``RequestContext.current()``          — returns the active RequestContext
-- ``ctx.set_headers(headers)``          — sets headers on the context (Gateway calls this)
-- ``ctx.get_headers()``                 — returns the bound headers (your handler calls this)
+- ``RequestContext.current()``     — returns the active RequestContext
+- ``ctx.set_headers(headers)``     — sets headers on the context (Gateway calls this)
+- ``ctx.get_headers()``            — returns the bound headers (your handler calls this)
 """
 
 import uuid
@@ -60,11 +64,15 @@ class RequestContextDemo:
         """
         Case 1 — Health check.
 
-        Calls RequestContext.current().get_headers() with no headers set,
-        showing the empty default state. In production the Gateway always
-        populates the context before your handler runs.
+        No set_headers() call here — the Graftcode Gateway automatically
+        captures the real HTTP headers that initiated the WebSocket connection
+        and injects them into the RequestContext *before* calling this handler.
 
-        Gateway equivalent: GET /
+        get_headers() reads back whatever the Gateway injected — real headers
+        from the live connection (host, user-agent, upgrade, sec-websocket-*,
+        x-forwarded-for, etc.).
+
+        Gateway equivalent: GET / (WebSocket upgrade request)
         """
         ctx = RequestContext.current()
         result = {
@@ -74,10 +82,11 @@ class RequestContextDemo:
             "pypi": "https://pypi.org/project/graftcode-context/",
             "headers_in_context": ctx.get_headers(),
             "explanation": (
-                "No headers set yet — this is the default empty context. "
-                "In production the Gateway calls set_headers() before your "
-                "handler runs, so get_headers() always returns the real "
-                "request headers."
+                "The Graftcode Gateway automatically captured the real HTTP "
+                "handshake headers that initiated the WebSocket connection and "
+                "injected them into the RequestContext before invoking this "
+                "method — without health_check() calling set_headers() at all. "
+                "This is the Gateway's automatic injection in action."
             ),
         }
         return json.dumps(result, indent=2, default=str)
@@ -117,7 +126,10 @@ class RequestContextDemo:
 
         token_type, _, token_value = auth.partition(" ")
         result = {
-            "message": "Authorization header read from RequestContext — zero boilerplate",
+            "message": (
+                "Authorization header read from RequestContext"
+                " — zero boilerplate"
+            ),
             "token_type": token_type,
             "token_preview": (
                 f"{token_value[:16]}..." if len(token_value) > 16 else token_value
@@ -181,7 +193,7 @@ class RequestContextDemo:
 
         Gateway equivalent: GET /correlation-demo
         """
-        incoming: Dict[str, str] = {}
+        incoming: dict[str, str] = {}
         if x_correlation_id:
             incoming["X-Correlation-Id"] = x_correlation_id
 
@@ -265,7 +277,7 @@ class RequestContextDemo:
 
         Gateway equivalent: GET /all-headers with multiple headers set.
         """
-        incoming: Dict[str, str] = {}
+        incoming: dict[str, str] = {}
         if authorization:
             incoming["Authorization"] = authorization
         if x_correlation_id:
@@ -327,7 +339,10 @@ class RequestContextDemo:
         result = {
             "after_first_set_headers": first_snapshot,
             "after_second_set_headers": second_snapshot,
-            "tenant_changed": first_snapshot.get("X-Tenant-Id") != second_snapshot.get("X-Tenant-Id"),
+            "tenant_changed": (
+                first_snapshot.get("X-Tenant-Id")
+                != second_snapshot.get("X-Tenant-Id")
+            ),
             "explanation": (
                 "set_headers() replaces all headers on the RequestContext instance. "
                 "The Gateway calls this once per request before your handler runs, "
