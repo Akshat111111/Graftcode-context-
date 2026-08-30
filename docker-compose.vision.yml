@@ -6,7 +6,7 @@
 #   docker-compose -f docker-compose.vision.yml up --build
 #
 # After the container starts, open: http://localhost:81/GV
-# All 8 demo cases appear as interactive "Try it out" forms.
+# All 7 demo cases appear as interactive "Try it out" forms.
 
 services:
   request-context-vision:

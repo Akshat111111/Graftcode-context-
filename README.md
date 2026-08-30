@@ -112,7 +112,11 @@ python-request-context/
 │   ├── __init__.py
 │   ├── test_request_context.py   # RequestContext unit tests
 │   └── test_request_context_demo.py  # Integration tests against demo methods
+├── blog/
+│   ├── build-context-aware-python-services.md
+│   └── assets/                   # Screenshots used in the blog post
 ├── conftest.py                   # pytest path setup
+├── context.md                    # Setup cheat sheet and expected outputs
 ├── pytest.ini
 ├── requirements.txt              # graftcode-context>=1.0.0
 ├── requirements-dev.txt
@@ -166,7 +170,7 @@ Override host and ports when auto-detect from the browser does not match your lo
 
 | # | Method | Inputs | What it demonstrates |
 |---|--------|--------|----------------------|
-| 1 | `health_check()` | none | `RequestContext.current().get_headers()` on an empty context — what you see before any headers are set |
+| 1 | `health_check()` | none | Gateway-injected WebSocket handshake headers visible via `get_headers()` — proves the Gateway does the injection automatically |
 | 2 | `auth_demo(authorization)` | `authorization` string | Gateway pattern: `set_headers({"Authorization": ...})` → `get_headers()` |
 | 3 | `auth_demo_missing_token()` | none | Handler detecting absent `Authorization` → 401-style error response |
 | 4 | `correlation_demo(x_correlation_id)` | optional ID string | Propagate a supplied ID; auto-generate a UUID when the field is blank |
@@ -177,17 +181,20 @@ Override host and ports when auto-detect from the browser does not match your lo
 ### How Vision executes each case
 
 ```
-You type a value in the Vision form (e.g. "Bearer my-token")
+You click "Run" on a method in Vision
         ↓
-Vision sends it over WebSocket (ws://localhost:80/ws) to gg
+Vision sends any form inputs over WebSocket (ws://localhost:80/ws) to gg
         ↓
-gg calls the method with your input as a Python argument
+gg calls the method with your inputs as Python arguments
         ↓
-The method calls RequestContext.current().set_headers({"Authorization": your_value})
+  • Case 1: the Gateway already injected real WebSocket handshake headers before
+    calling the handler — health_check() calls get_headers() directly, no set_headers()
+  • Cases 2–7: the method calls set_headers({...}) with headers built from your form input,
+    then reads them back via get_headers()
         ↓
-A real RequestContext is populated with that header in memory
+A real RequestContext is populated with those headers in memory
         ↓
-get_headers() reads it back — live, from the ContextVar
+get_headers() reads them back — live, from the ContextVar
         ↓
 Result is serialised to JSON and returned to Vision — displayed in the UI
 ```
@@ -214,12 +221,12 @@ Then run the local demo script — exercises all cases and prints JSON output:
 
 **bash / zsh:**
 ```bash
-PYTHONPATH=src python vision/demo.py
+python vision/demo.py
 ```
 
 **PowerShell:**
 ```powershell
-$env:PYTHONPATH = "src"; python vision/demo.py
+python vision/demo.py
 ```
 
 ---
@@ -259,12 +266,12 @@ pytest tests/test_request_context.py -v
 
 | | Graftcode Vision (this demo) | Real Graftcode Gateway (production) |
 |---|---|---|
-| **Who sets headers?** | Each demo method calls `RequestContext.current().set_headers()` explicitly | The Gateway calls it automatically — your handler never sees this code |
-| **What gets bound?** | The values you type into the Vision form | The HTTP headers from the inbound client request (JWT, tenant ID, correlation ID, etc.) |
+| **Who sets headers?** | Case 1: the Gateway injects real WebSocket handshake headers automatically. Cases 2–7: each method calls `set_headers()` explicitly with form input values | The Gateway calls it automatically — your handler never sees this code |
+| **What gets bound?** | Case 1: real live connection headers. Cases 2–7: the values you type into the Vision form | The HTTP headers from the inbound client request (JWT, tenant ID, correlation ID, etc.) |
 | **How you read headers** | `RequestContext.current().get_headers()` | Identical — same one-liner |
 | **Output** | Live JSON reflecting the real `RequestContext` state | Same — your service reads real validated headers |
 
-The binding code is shown in the demo so you can **see** the mechanism. In production it is invisible.
+Case 1 is the purest demonstration: `health_check()` never calls `set_headers()` — the Gateway does it transparently. Cases 2–7 make the injection step visible so you can see the exact mechanism.
 
 ### Server side (your deployed service)
 

@@ -261,13 +261,13 @@ No framework, no extra tooling — just Python. You can run our interactive demo
 **bash / zsh:**
 ```bash
 pip install -r requirements-dev.txt
-PYTHONPATH=src python vision/demo.py
+python vision/demo.py
 ```
 
 **PowerShell:**
 ```powershell
 pip install -r requirements-dev.txt
-$env:PYTHONPATH="src"; python vision/demo.py
+python vision/demo.py
 ```
 
 The script exercises all 7 demo cases directly and prints the live JSON output to your terminal, injecting context locally exactly the same way the Gateway does in production.
@@ -445,7 +445,7 @@ To prove these concepts in action, we expose all 7 demo cases through **Graftcod
 
 | # | Method | Inputs | What it demonstrates |
 |---|--------|--------|----------------------|
-| 1 | `health_check()` | none | `RequestContext.current().get_headers()` on an empty context — what you see before any headers are set |
+| 1 | `health_check()` | none | Gateway-injected WebSocket handshake headers visible via `get_headers()` — proves the Gateway does the injection automatically |
 | 2 | `auth_demo(authorization)` | `authorization` string | Gateway pattern: bind `Authorization` header → read it back via `RequestContext` |
 | 3 | `auth_demo_missing_token()` | none | What a handler sees when no `Authorization` is present → 401-style error response |
 | 4 | `correlation_demo(x_correlation_id)` | optional ID string | Propagate a supplied ID; auto-generate a UUID when the field is blank |
@@ -456,15 +456,18 @@ To prove these concepts in action, we expose all 7 demo cases through **Graftcod
 ### How Vision Executes Each Case
 
 ```
-You type a value in the Vision form (e.g. "Bearer my-token")
+You click "Run" on a method in Vision
         ↓
-Vision sends it over WebSocket (ws://localhost:80/ws) to gg
+Vision sends any form inputs over WebSocket (ws://localhost:80/ws) to gg
         ↓
-gg calls the method with your input as a Python argument
+gg calls the method with your inputs as Python arguments
         ↓
-The method calls RequestContext.current().set_headers({"Authorization": your_value})
+  • Case 1: the Gateway already injected real WebSocket handshake headers before
+    calling the handler — health_check() calls get_headers() directly, no set_headers()
+  • Cases 2–7: the method calls set_headers({...}) with headers built from your form input,
+    then reads them back via get_headers()
         ↓
-A real RequestContext is populated in memory with that header bound
+A real RequestContext is populated with those headers in memory
         ↓
 The handler code reads RequestContext.current().get_headers() — live, from memory
         ↓
@@ -483,7 +486,7 @@ Result is serialised to JSON and returned to Vision — displayed in the UI
 
 ### Case 1: Health Check
 ![Case 1: Health Check part 1](assets/case%201%20a.png)
-![Case 1: Health Check part 2](assets/Case%201%20b.png)
+![Case 1: Health Check part 2](assets/case%201%20b.png)
 **Explanation:** The root endpoint shows our service is healthy. Notice that the context isn't empty — the Graftcode Gateway automatically captured the real HTTP headers that initiated the WebSocket connection (like `user-agent` and `host`) and injected them into the `RequestContext` before invoking our method.
 
 ### Case 2: Auth Demo (With Bearer Token)

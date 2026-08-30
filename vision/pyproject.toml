@@ -2,4 +2,4 @@
 name = "request-context-demo"
 version = "1.0.0"
 requires-python = ">=3.12"
-description = "Graftcode Context Library demo -- 8 cases via Graftcode Vision"
+description = "Graftcode Context Library demo -- 7 cases via Graftcode Vision"
