@@ -217,7 +217,11 @@ First install the dev dependencies (includes `graftcode-context` from PyPI):
 pip install -r requirements-dev.txt
 ```
 
-Then run the local demo script — exercises all cases and prints JSON output:
+Then run the local demo script — exercises all cases and prints JSON output.
+
+> **Note — Case 1 locally:** `health_check()` never calls `set_headers()`, so
+> `headers_in_context` will be `{}` when run without the Gateway. The output
+> explains this and points you to Docker/Vision to see real header injection.
 
 **bash / zsh:**
 ```bash

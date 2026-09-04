@@ -23,7 +23,7 @@ import pytest
 # Make sure vision/ is on the path so RequestContextDemo is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "vision"))
 
-from request_context_demo import RequestContextDemo  # noqa: E402
+from request_context_demo import RequestContextDemo
 
 
 @pytest.fixture

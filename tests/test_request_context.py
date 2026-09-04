@@ -18,7 +18,6 @@ Tests cover:
 
 import asyncio
 
-import pytest
 
 from graftcode import RequestContext
 
