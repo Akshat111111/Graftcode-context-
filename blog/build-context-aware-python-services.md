@@ -270,7 +270,11 @@ pip install -r requirements-dev.txt
 python vision/demo.py
 ```
 
-The script exercises all 7 demo cases directly and prints the live JSON output to your terminal, injecting context locally exactly the same way the Gateway does in production.
+The script exercises all 7 demo cases directly and prints the live JSON output
+to your terminal. Cases 2–7 inject context explicitly via `set_headers()`,
+mirroring exactly what the Gateway does. **Case 1** (`health_check`) never calls
+`set_headers()`, so locally `headers_in_context` is `{}` — the output explains
+this and points you to Vision to see the real Gateway injection in action.
 
 ### Docker
 

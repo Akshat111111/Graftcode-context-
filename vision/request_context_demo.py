@@ -75,19 +75,32 @@ class RequestContextDemo:
         Gateway equivalent: GET / (WebSocket upgrade request)
         """
         ctx = RequestContext.current()
-        result = {
-            "service": "Graftcode Request Context Demo (Python)",
-            "version": "1.0.0",
-            "status": "healthy",
-            "pypi": "https://pypi.org/project/graftcode-context/",
-            "headers_in_context": ctx.get_headers(),
-            "explanation": (
+        headers = ctx.get_headers()
+        if headers:
+            explanation = (
                 "The Graftcode Gateway automatically captured the real HTTP "
                 "handshake headers that initiated the WebSocket connection and "
                 "injected them into the RequestContext before invoking this "
                 "method — without health_check() calling set_headers() at all. "
                 "This is the Gateway's automatic injection in action."
-            ),
+            )
+        else:
+            explanation = (
+                "Running locally: no Gateway is present, so headers_in_context "
+                "is empty — health_check() never calls set_headers(). "
+                "Run via Graftcode Vision (docker-compose -f "
+                "docker-compose.vision.yml up --build, then open "
+                "http://localhost:81/GV) to see the Gateway inject real "
+                "WebSocket handshake headers automatically before this method "
+                "is called."
+            )
+        result = {
+            "service": "Graftcode Request Context Demo (Python)",
+            "version": "1.0.0",
+            "status": "healthy",
+            "pypi": "https://pypi.org/project/graftcode-context/",
+            "headers_in_context": headers,
+            "explanation": explanation,
         }
         return json.dumps(result, indent=2, default=str)
 

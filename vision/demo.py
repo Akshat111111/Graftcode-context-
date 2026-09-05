@@ -17,20 +17,20 @@ import json
 
 
 def _main() -> None:
-    from request_context_demo import RequestContextDemo  # noqa: E402
+    from request_context_demo import RequestContextDemo
 
     SEP = "=" * 62
     demo = RequestContextDemo()
 
     CASES = [
-        ("Case 1 — Health Check",                              demo.health_check),  # noqa: E501
-        ("Case 2 — Auth Demo (success)",                       lambda: demo.auth_demo()),  # noqa: E501
-        ("Case 3 — Auth Demo (missing token / 401)",           demo.auth_demo_missing_token),  # noqa: E501
-        ("Case 4 — Correlation ID (auto-generated)",           lambda: demo.correlation_demo()),  # noqa: E501
-        ("Case 4b — Correlation ID (provided)",                lambda: demo.correlation_demo("req-5f3a-2026")),  # noqa: E501
-        ("Case 5 — Tenant ID missing (400)",                   demo.tenant_demo_missing_id),  # noqa: E501
-        ("Case 6 — All Headers",                               demo.all_headers),  # noqa: E501
-        ("Case 7 — Context Replace Demo",                      demo.context_replace_demo),  # noqa: E501
+        ("Case 1 — Health Check",                              demo.health_check),
+        ("Case 2 — Auth Demo (success)",                       lambda: demo.auth_demo()),
+        ("Case 3 — Auth Demo (missing token / 401)",           demo.auth_demo_missing_token),
+        ("Case 4 — Correlation ID (auto-generated)",           lambda: demo.correlation_demo()),
+        ("Case 4b — Correlation ID (provided)",                lambda: demo.correlation_demo("req-5f3a-2026")),
+        ("Case 5 — Tenant ID missing (400)",                   demo.tenant_demo_missing_id),
+        ("Case 6 — All Headers",                               demo.all_headers),
+        ("Case 7 — Context Replace Demo",                      demo.context_replace_demo),
     ]
 
     print(SEP)
